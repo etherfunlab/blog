@@ -1,0 +1,59 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import LocalTime from '../components/LocalTime.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  date: Date;
+  updated?: Date;
+  tags: string[];
+  draft: boolean;
+  lang: 'zh' | 'en';
+}
+const { title, description, date, updated, tags, draft, lang } = Astro.props;
+const status = draft ? 'draft' : 'published';
+const dateIso = date.toISOString();
+const updatedIso = updated?.toISOString();
+---
+<BaseLayout title={title} description={description} lang={lang}>
+  <article class="prose dark:prose-invert max-w-content mx-auto">
+    <header class="not-prose mb-8 pb-6 border-b border-border">
+      <h1 class="font-serif font-bold text-3xl md:text-4xl text-fg leading-tight m-0">{title}</h1>
+      {description && (
+        <p class="mt-3 text-fg-muted text-lg">{description}</p>
+      )}
+      <div class="mt-4 flex items-center gap-3 flex-wrap text-sm">
+        <span class="font-mono text-xs text-fg-muted">
+          <LocalTime iso={dateIso} precision="date" />
+        </span>
+        <StatusBadge status={status} />
+        {updatedIso && (
+          <>
+            <span class="text-border-strong">·</span>
+            <span class="font-mono text-xs text-fg-subtle">
+              updated <LocalTime iso={updatedIso} precision="date" />
+            </span>
+          </>
+        )}
+        {tags.length > 0 && (
+          <>
+            <span class="text-border-strong">·</span>
+            <ul class="flex gap-2 m-0 p-0 list-none">
+              {tags.map((t) => (
+                <li class="m-0 p-0">
+                  <a
+                    href={`/tags/${t}/`}
+                    class="text-xs font-mono text-fg-muted hover:text-brand no-underline hover:underline"
+                  >#{t}</a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </header>
+    <slot />
+  </article>
+</BaseLayout>

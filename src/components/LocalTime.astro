@@ -1,0 +1,41 @@
+---
+/**
+ * Render a UTC-anchored timestamp that gets reformatted to the viewer's
+ * local timezone in the browser. Server output is the UTC fallback.
+ *
+ * Usage:
+ *   <LocalTime iso={post.data.date.toISOString()} precision="date" />
+ */
+interface Props {
+  iso: string;
+  precision?: 'minute' | 'second' | 'date';
+  class?: string;
+}
+
+const { iso, precision = 'minute', class: className } = Astro.props;
+
+function formatUtcFallback(input: string, p: Props['precision']): string {
+  const d = new Date(input);
+  if (Number.isNaN(d.getTime())) return input;
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  if (p === 'date') return `${yyyy}-${mm}-${dd}`;
+  const hh = String(d.getUTCHours()).padStart(2, '0');
+  const mi = String(d.getUTCMinutes()).padStart(2, '0');
+  if (p === 'second') {
+    const ss = String(d.getUTCSeconds()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss} UTC`;
+  }
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi} UTC`;
+}
+
+const fallback = formatUtcFallback(iso, precision);
+---
+<time
+  datetime={iso}
+  data-local-time
+  data-precision={precision}
+  class={className}
+  title={iso}
+>{fallback}</time>

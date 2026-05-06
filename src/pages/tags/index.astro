@@ -1,0 +1,37 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const posts = await getCollection('posts', ({ data }) =>
+  import.meta.env.PROD ? data.draft !== true : true,
+);
+const counts = new Map<string, number>();
+for (const post of posts) {
+  for (const t of post.data.tags) {
+    counts.set(t, (counts.get(t) ?? 0) + 1);
+  }
+}
+const tags = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+---
+<BaseLayout title="Tags" description="All tags on EtherFun Lab">
+  <section class="max-w-content mx-auto">
+    <h1 class="font-serif font-bold text-3xl m-0">Tags</h1>
+    {tags.length === 0 ? (
+      <p class="mt-6 text-fg-muted">No tags yet.</p>
+    ) : (
+      <ul class="mt-8 flex flex-wrap gap-3 list-none p-0">
+        {tags.map(([tag, count]) => (
+          <li class="m-0 p-0">
+            <a
+              href={`/tags/${tag}/`}
+              class="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-border hover:border-brand bg-surface text-fg no-underline hover:text-brand hover:no-underline"
+            >
+              <span class="font-mono text-sm">#{tag}</span>
+              <span class="text-xs text-fg-subtle">{count}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+</BaseLayout>

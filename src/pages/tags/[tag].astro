@@ -1,0 +1,45 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import LocalTime from '../../components/LocalTime.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts', ({ data }) =>
+    import.meta.env.PROD ? data.draft !== true : true,
+  );
+  const tagSet = new Set<string>();
+  for (const p of posts) for (const t of p.data.tags) tagSet.add(t);
+  return Array.from(tagSet).map((tag) => ({
+    params: { tag },
+    props: {
+      tag,
+      posts: posts
+        .filter((p) => p.data.tags.includes(tag))
+        .sort((a, b) => b.data.date.getTime() - a.data.date.getTime()),
+    },
+  }));
+}
+
+const { tag, posts } = Astro.props;
+---
+<BaseLayout title={`#${tag}`} description={`Posts tagged #${tag}`}>
+  <section class="max-w-content mx-auto">
+    <p class="text-sm text-fg-muted m-0"><a href="/tags/" class="text-fg-muted hover:text-brand no-underline hover:underline">← all tags</a></p>
+    <h1 class="font-serif font-bold text-3xl mt-2 mb-8">#{tag}</h1>
+    <ul class="list-none p-0 m-0 space-y-6">
+      {posts.map((post) => (
+        <li class="m-0 p-0 border-b border-border pb-6">
+          <div class="text-xs font-mono text-fg-subtle mb-1">
+            <LocalTime iso={post.data.date.toISOString()} precision="date" />
+          </div>
+          <h2 class="font-serif font-bold text-xl m-0">
+            <a href={`/posts/${post.id}/`} class="text-fg no-underline hover:text-brand hover:no-underline">{post.data.title}</a>
+          </h2>
+          {post.data.description && (
+            <p class="mt-1 mb-0 text-fg-muted text-sm">{post.data.description}</p>
+          )}
+        </li>
+      ))}
+    </ul>
+  </section>
+</BaseLayout>

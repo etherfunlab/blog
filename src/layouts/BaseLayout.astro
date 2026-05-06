@@ -1,0 +1,146 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  lang?: 'zh' | 'en';
+  ogImage?: string;
+}
+const {
+  title,
+  description = 'EtherFun Lab — 技术与产品笔记',
+  lang = 'zh',
+  ogImage = '/og-default.png',
+} = Astro.props;
+
+const siteName = 'EtherFun Lab';
+const fullTitle = title === siteName ? title : `${title} — ${siteName}`;
+const canonical = new URL(Astro.url.pathname, Astro.site).toString();
+const ogImageUrl = new URL(ogImage, Astro.site).toString();
+---
+<!doctype html>
+<html lang={lang}>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{fullTitle}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonical} />
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="sitemap" href="/sitemap-index.xml" />
+  <link rel="alternate" type="application/rss+xml" title={siteName} href="/rss.xml" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content={siteName} />
+  <meta property="og:title" content={fullTitle} />
+  <meta property="og:description" content={description} />
+  <meta property="og:image" content={ogImageUrl} />
+  <meta property="og:url" content={canonical} />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content={fullTitle} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImageUrl} />
+
+  <link rel="preconnect" href="https://fonts.bunny.net" />
+  <link
+    rel="stylesheet"
+    href="https://fonts.bunny.net/css?family=inter:400,500,600|source-serif-pro:600,700|jetbrains-mono:400&display=swap"
+  />
+
+  <script is:inline>
+    (() => {
+      const stored = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = stored || (prefersDark ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+  <header class="border-b border-border">
+    <div class="max-w-page mx-auto px-6 py-4 flex justify-between items-center">
+      <a href="/" class="flex items-center gap-2 font-serif font-bold text-lg text-fg no-underline hover:no-underline">
+        <span>EtherFun Lab</span>
+      </a>
+      <div class="flex items-center gap-1">
+        <nav id="site-nav" class="flex gap-4 items-center sm:mr-2">
+          <a href="/" class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">posts</a>
+          <a href="/tags/" class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">tags</a>
+          <a href="/about/" class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">about</a>
+          <a href="/rss.xml" class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">rss</a>
+        </nav>
+        <button
+          id="theme-toggle"
+          class="p-1.5 rounded hover:bg-surface text-fg-muted hover:text-fg"
+          aria-label="Toggle dark mode"
+          type="button"
+        >
+          <svg class="w-4 h-4 block dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          <svg class="w-4 h-4 hidden dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <button
+          id="nav-toggle"
+          class="p-1.5 rounded hover:bg-surface text-fg-muted hover:text-fg"
+          aria-label="Toggle navigation menu"
+          aria-controls="site-nav"
+          aria-expanded="false"
+          type="button"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-wide mx-auto px-6 py-8">
+    <slot />
+  </main>
+
+  <footer class="text-sm text-fg-muted text-center py-8 border-t border-border mt-16">
+    <span>EtherFun Lab · 技术与产品笔记</span>
+    <span class="text-border-strong mx-2">·</span>
+    <a href="/rss.xml" class="hover:underline">RSS</a>
+  </footer>
+
+  <script>
+    document.getElementById('theme-toggle')?.addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme');
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    });
+
+    const navToggle = document.getElementById('nav-toggle');
+    const siteNav = document.getElementById('site-nav');
+    navToggle?.addEventListener('click', () => {
+      const open = siteNav?.getAttribute('data-open') === 'true';
+      siteNav?.setAttribute('data-open', open ? 'false' : 'true');
+      navToggle.setAttribute('aria-expanded', open ? 'false' : 'true');
+    });
+
+    function pad(n: number) { return String(n).padStart(2, '0'); }
+    function formatLocal(iso: string, precision: string) {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      const yyyy = d.getFullYear();
+      const mm = pad(d.getMonth() + 1);
+      const dd = pad(d.getDate());
+      if (precision === 'date') return `${yyyy}-${mm}-${dd}`;
+      const hh = pad(d.getHours());
+      const mi = pad(d.getMinutes());
+      if (precision === 'second') {
+        return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${pad(d.getSeconds())}`;
+      }
+      return `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
+    }
+    document.querySelectorAll<HTMLTimeElement>('time[data-local-time]').forEach((el) => {
+      const iso = el.getAttribute('datetime');
+      if (!iso) return;
+      const precision = el.dataset.precision || 'minute';
+      el.textContent = formatLocal(iso, precision);
+    });
+  </script>
+</body>
+</html>

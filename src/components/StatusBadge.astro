@@ -1,0 +1,17 @@
+---
+interface Props {
+  status: 'draft' | 'published' | 'archived';
+}
+const { status } = Astro.props;
+const label = status.toUpperCase();
+---
+{status !== 'published' && (
+  <span class={`badge badge-${status} inline-block px-2 py-0.5 text-xs font-mono uppercase rounded-sm`}>
+    {label}
+  </span>
+)}
+
+<style>
+  .badge-draft    { background: var(--badge-draft-bg);    color: var(--badge-draft-fg); }
+  .badge-archived { background: var(--badge-archived-bg); color: var(--badge-archived-fg); }
+</style>

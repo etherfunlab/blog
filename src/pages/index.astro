@@ -1,0 +1,50 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import StatusBadge from '../components/StatusBadge.astro';
+import LocalTime from '../components/LocalTime.astro';
+
+const posts = (await getCollection('posts', ({ data }) =>
+  import.meta.env.PROD ? data.draft !== true : true,
+)).sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+---
+<BaseLayout title="EtherFun Lab" description="EtherFun Lab — 技术与产品笔记">
+  <section class="max-w-content mx-auto">
+    <header class="mb-12">
+      <h1 class="font-serif font-bold text-4xl text-fg leading-tight m-0">EtherFun Lab</h1>
+      <p class="mt-3 text-fg-muted text-lg">技术与产品笔记 · notes on engineering &amp; product</p>
+    </header>
+
+    {posts.length === 0 ? (
+      <p class="text-fg-muted">No posts yet — coming soon.</p>
+    ) : (
+      <ul class="list-none p-0 m-0 space-y-8">
+        {posts.map((post) => (
+          <li class="m-0 p-0">
+            <article class="border-b border-border pb-8">
+              <div class="flex items-center gap-3 flex-wrap mb-2 text-xs font-mono text-fg-subtle">
+                <LocalTime iso={post.data.date.toISOString()} precision="date" />
+                <StatusBadge status={post.data.draft ? 'draft' : 'published'} />
+                {post.data.tags.map((t) => (
+                  <a
+                    href={`/tags/${t}/`}
+                    class="text-fg-muted hover:text-brand no-underline hover:underline"
+                  >#{t}</a>
+                ))}
+              </div>
+              <h2 class="font-serif font-bold text-2xl m-0 leading-snug">
+                <a
+                  href={`/posts/${post.id}/`}
+                  class="text-fg no-underline hover:text-brand hover:no-underline"
+                >{post.data.title}</a>
+              </h2>
+              {post.data.description && (
+                <p class="mt-2 mb-0 text-fg-muted">{post.data.description}</p>
+              )}
+            </article>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+</BaseLayout>
