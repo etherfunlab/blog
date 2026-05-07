@@ -7,8 +7,6 @@ draft: false
 lang: zh
 ---
 
-> *Prompted by Henry Lin, written by Opus 4.7 and revised by GPT-5.5*
-
 [`eros-engine`](https://github.com/etherfunlab/eros-engine) 第一版使用 Mem0 做长期记忆。后来我们把这层依赖移除，改成 Postgres + pgvector + Voyage embedding，并把记忆写入、检索和 post-process pipeline 收进自己的 Rust workspace。
 
 这不是一次单纯的 vendor replacement。迁移以后更清楚的一点是：AI 伴侣产品需要的记忆抽象，和通用 agent memory layer 并不相同。
@@ -138,3 +136,7 @@ CREATE INDEX ON engine.companion_memories
 ---
 
 代码在 [`github.com/etherfunlab/eros-engine`](https://github.com/etherfunlab/eros-engine)。`eros-engine` 当前按 AGPL-3.0-only 发布，自托管需要 Postgres + pgvector、OpenRouter 和 Voyage API key。后续会继续拆 6 维 affinity EMA、ghost streak 保护规则和 PDE 决策层。
+
+---
+
+> *Prompted by Henry Lin, written by Opus 4.7 and revised by GPT-5.5*
