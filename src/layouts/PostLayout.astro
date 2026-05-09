@@ -2,6 +2,7 @@
 import BaseLayout from './BaseLayout.astro';
 import StatusBadge from '../components/StatusBadge.astro';
 import LocalTime from '../components/LocalTime.astro';
+import { tagUrl } from '../lib/lang';
 
 interface Props {
   title: string;
@@ -11,13 +12,15 @@ interface Props {
   tags: string[];
   draft: boolean;
   lang: 'zh' | 'en';
+  siblingHref?: string;
 }
-const { title, description, date, updated, tags, draft, lang } = Astro.props;
+const { title, description, date, updated, tags, draft, lang, siblingHref } = Astro.props;
 const status = draft ? 'draft' : 'published';
 const dateIso = date.toISOString();
 const updatedIso = updated?.toISOString();
+const updatedLabel = lang === 'zh' ? '更新于' : 'updated';
 ---
-<BaseLayout title={title} description={description} lang={lang}>
+<BaseLayout title={title} description={description} lang={lang} siblingHref={siblingHref}>
   <article class="prose dark:prose-invert max-w-content mx-auto">
     <header class="not-prose mb-8 pb-6 border-b border-border">
       <h1 class="font-serif font-bold text-3xl md:text-4xl text-fg leading-tight m-0">{title}</h1>
@@ -33,7 +36,7 @@ const updatedIso = updated?.toISOString();
           <>
             <span class="text-border-strong">·</span>
             <span class="font-mono text-xs text-fg-subtle">
-              updated <LocalTime iso={updatedIso} precision="date" />
+              {updatedLabel} <LocalTime iso={updatedIso} precision="date" />
             </span>
           </>
         )}
@@ -44,7 +47,7 @@ const updatedIso = updated?.toISOString();
               {tags.map((t) => (
                 <li class="m-0 p-0">
                   <a
-                    href={`/tags/${t}/`}
+                    href={tagUrl(t, lang)}
                     class="text-xs font-mono text-fg-muted hover:text-brand no-underline hover:underline"
                   >#{t}</a>
                 </li>

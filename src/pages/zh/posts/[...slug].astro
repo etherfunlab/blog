@@ -1,14 +1,14 @@
 ---
 import { getCollection, render } from 'astro:content';
-import PostLayout from '../../layouts/PostLayout.astro';
-import { baseFromFilePath, siblingUrlFor } from '../../lib/lang';
+import PostLayout from '../../../layouts/PostLayout.astro';
+import { baseFromFilePath, siblingUrlFor } from '../../../lib/lang';
 
 export async function getStaticPaths() {
   const all = await getCollection('posts');
-  const enPosts = all.filter(
-    (p) => p.data.lang === 'en' && (import.meta.env.PROD ? !p.data.draft : true),
+  const zhPosts = all.filter(
+    (p) => p.data.lang === 'zh' && (import.meta.env.PROD ? !p.data.draft : true),
   );
-  return enPosts.map((post) => ({
+  return zhPosts.map((post) => ({
     params: { slug: baseFromFilePath(post.filePath ?? '') },
     props: { post, all },
   }));
@@ -25,7 +25,7 @@ const siblingHref = siblingUrlFor(post, all);
   updated={post.data.updated}
   tags={post.data.tags}
   draft={post.data.draft}
-  lang="en"
+  lang="zh"
   siblingHref={siblingHref}
 >
   <Content />

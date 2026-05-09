@@ -1,21 +1,21 @@
 import rss from '@astrojs/rss';
 import { getCollection } from 'astro:content';
-import { baseFromFilePath, postUrl } from '../lib/lang.ts';
+import { baseFromFilePath, postUrl } from '../../lib/lang.ts';
 
-// Default RSS feed serves the EN posts. ZH feed lives at /zh/rss.xml.
+// 中文 RSS feed —— 与默认 /rss.xml (EN) 平行。
 export async function GET(context) {
   const posts = (
-    await getCollection('posts', ({ data }) => data.draft !== true && data.lang === 'en')
+    await getCollection('posts', ({ data }) => data.draft !== true && data.lang === 'zh')
   ).sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
   return rss({
     title: 'EtherFun Lab',
-    description: 'EtherFun Lab — engineering & product notes',
+    description: 'EtherFun Lab — 技术与产品笔记',
     site: context.site,
     items: posts.map((post) => ({
       title: post.data.title,
       description: post.data.description ?? '',
       pubDate: post.data.date,
-      link: postUrl(baseFromFilePath(post.filePath ?? ''), 'en'),
+      link: postUrl(baseFromFilePath(post.filePath ?? ''), 'zh'),
     })),
   });
 }

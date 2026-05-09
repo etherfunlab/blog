@@ -1,23 +1,44 @@
 ---
 import '../styles/global.css';
+import LangSwitcher from '../components/LangSwitcher.astro';
+import type { Lang } from '../lib/lang';
 
 interface Props {
   title: string;
   description?: string;
-  lang?: 'zh' | 'en';
+  lang?: Lang;
   ogImage?: string;
+  /** Direct sibling URL for the lang switcher (post pages have one; index pages don't). */
+  siblingHref?: string;
 }
 const {
   title,
-  description = 'EtherFun Lab — 技术与产品笔记',
-  lang = 'zh',
+  lang = 'en',
   ogImage = '/og-default.png',
+  siblingHref,
 } = Astro.props;
+const description =
+  Astro.props.description ??
+  (lang === 'zh'
+    ? 'EtherFun Lab — 技术与产品笔记'
+    : 'EtherFun Lab — engineering & product notes');
 
 const siteName = 'EtherFun Lab';
 const fullTitle = title === siteName ? title : `${title} — ${siteName}`;
 const canonical = new URL(Astro.url.pathname, Astro.site).toString();
 const ogImageUrl = new URL(ogImage, Astro.site).toString();
+
+const navLabels =
+  lang === 'zh'
+    ? { posts: 'posts', tags: 'tags', about: 'about', rss: 'rss' }
+    : { posts: 'posts', tags: 'tags', about: 'about', rss: 'rss' };
+
+const homeHref = lang === 'zh' ? '/zh/' : '/';
+const navHrefs =
+  lang === 'zh'
+    ? { posts: '/zh/', tags: '/zh/tags/', about: '/zh/about/', rss: '/zh/rss.xml' }
+    : { posts: '/', tags: '/tags/', about: '/about/', rss: '/rss.xml' };
+const fallbackOtherHome = lang === 'zh' ? '/' : '/zh/';
 ---
 <!doctype html>
 <html lang={lang}>
@@ -30,7 +51,8 @@ const ogImageUrl = new URL(ogImage, Astro.site).toString();
 
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   <link rel="sitemap" href="/sitemap-index.xml" />
-  <link rel="alternate" type="application/rss+xml" title={siteName} href="/rss.xml" />
+  <link rel="alternate" type="application/rss+xml" title={siteName} href={lang === 'zh' ? '/zh/rss.xml' : '/rss.xml'} />
+  <link rel="alternate" type="application/rss+xml" title={`${siteName} (${lang === 'zh' ? 'EN' : '中文'})`} href={lang === 'zh' ? '/rss.xml' : '/zh/rss.xml'} />
 
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content={siteName} />
@@ -50,26 +72,58 @@ const ogImageUrl = new URL(ogImage, Astro.site).toString();
   />
 
   <script is:inline>
+    // Theme detection — runs before paint to avoid flash.
     (() => {
       const stored = localStorage.getItem('theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
       const theme = stored || (prefersDark ? 'dark' : 'light');
       document.documentElement.setAttribute('data-theme', theme);
     })();
+    // Language auto-redirect — default EN; switch to ZH on user pref or
+    // browser-reported zh-first preference. Manual switcher overrides forever.
+    (() => {
+      try {
+        const path = location.pathname;
+        const onZh = path === '/zh' || path.startsWith('/zh/');
+        const stored = localStorage.getItem('lang-pref');
+        const goToZh = () => {
+          const next = '/zh' + (path === '/' ? '/' : path) + location.search + location.hash;
+          location.replace(next);
+        };
+        const goToEn = () => {
+          const stripped = path.replace(/^\/zh\/?/, '/');
+          location.replace(stripped + location.search + location.hash);
+        };
+        if (stored === 'zh' && !onZh) return goToZh();
+        if (stored === 'en' && onZh) return goToEn();
+        if (stored) return; // explicit pref already matches current path
+        if (onZh) return;   // landed on zh path directly — respect intent
+        // No stored pref + on EN path: probe navigator.languages.
+        const langs = navigator.languages || [navigator.language || 'en'];
+        for (const l of langs) {
+          if (/^zh/i.test(l)) return goToZh();
+          if (/^en/i.test(l)) return; // EN comes first → stay
+        }
+      } catch (_e) {
+        // Sandboxed / disabled storage — give up, render EN.
+      }
+    })();
   </script>
 </head>
 <body>
   <header class="border-b border-border">
     <div class="max-w-page mx-auto px-6 py-4 flex justify-between items-center">
-      <a href="/" class="flex items-center gap-2 font-serif font-bold text-lg text-fg no-underline hover:no-underline">
+      <a href={homeHref} class="flex items-center gap-2 font-serif font-bold text-lg text-fg no-underline hover:no-underline">
         <span>EtherFun Lab</span>
       </a>
       <div class="flex items-center gap-1">
         <nav id="site-nav" class="flex gap-4 items-center sm:mr-2">
-          <a href="/" class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">posts</a>
-          <a href="/tags/" class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">tags</a>
-          <a href="/about/" class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">about</a>
-          <a href="/rss.xml" class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">rss</a>
+          <a href={navHrefs.posts} class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">{navLabels.posts}</a>
+          <a href={navHrefs.tags} class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">{navLabels.tags}</a>
+          <a href={navHrefs.about} class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">{navLabels.about}</a>
+          <a href={navHrefs.rss} class="text-sm text-fg-muted hover:text-fg no-underline hover:no-underline">{navLabels.rss}</a>
+          <span class="text-border-strong text-xs">·</span>
+          <LangSwitcher currentLang={lang} siblingHref={siblingHref} fallbackHref={fallbackOtherHome} />
         </nav>
         <button
           id="theme-toggle"
@@ -99,9 +153,9 @@ const ogImageUrl = new URL(ogImage, Astro.site).toString();
   </main>
 
   <footer class="text-sm text-fg-muted text-center py-8 border-t border-border mt-16">
-    <span>EtherFun Lab · 技术与产品笔记</span>
+    <span>EtherFun Lab · {lang === 'zh' ? '技术与产品笔记' : 'engineering & product notes'}</span>
     <span class="text-border-strong mx-2">·</span>
-    <a href="/rss.xml" class="hover:underline">RSS</a>
+    <a href={lang === 'zh' ? '/zh/rss.xml' : '/rss.xml'} class="hover:underline">RSS</a>
   </footer>
 
   <script>

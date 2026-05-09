@@ -1,10 +1,10 @@
 ---
 import { getCollection } from 'astro:content';
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import { tagUrl } from '../../lib/lang';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import { tagUrl } from '../../../lib/lang';
 
 const posts = await getCollection('posts', ({ data }) =>
-  (import.meta.env.PROD ? data.draft !== true : true) && data.lang === 'en',
+  (import.meta.env.PROD ? data.draft !== true : true) && data.lang === 'zh',
 );
 const counts = new Map<string, number>();
 for (const post of posts) {
@@ -14,17 +14,17 @@ for (const post of posts) {
 }
 const tags = Array.from(counts.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
 ---
-<BaseLayout title="Tags" description="All tags on EtherFun Lab" lang="en">
+<BaseLayout title="Tags" description="EtherFun Lab 的所有标签" lang="zh">
   <section class="max-w-content mx-auto">
-    <h1 class="font-serif font-bold text-3xl m-0">Tags</h1>
+    <h1 class="font-serif font-bold text-3xl m-0">标签</h1>
     {tags.length === 0 ? (
-      <p class="mt-6 text-fg-muted">No tags yet.</p>
+      <p class="mt-6 text-fg-muted">暂无标签。</p>
     ) : (
       <ul class="mt-8 flex flex-wrap gap-3 list-none p-0">
         {tags.map(([tag, count]) => (
           <li class="m-0 p-0">
             <a
-              href={tagUrl(tag, 'en')}
+              href={tagUrl(tag, 'zh')}
               class="inline-flex items-center gap-2 px-3 py-1.5 rounded border border-border hover:border-brand bg-surface text-fg no-underline hover:text-brand hover:no-underline"
             >
               <span class="font-mono text-sm">#{tag}</span>

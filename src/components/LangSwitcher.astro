@@ -1,0 +1,32 @@
+---
+import type { Lang } from '../lib/lang';
+
+interface Props {
+  currentLang: Lang;
+  /** Direct sibling URL for the same post in the other language. */
+  siblingHref?: string;
+  /** Fallback URL if no sibling exists — defaults to the language home. */
+  fallbackHref?: string;
+}
+const { currentLang, siblingHref, fallbackHref } = Astro.props;
+const otherLang = currentLang === 'zh' ? 'en' : 'zh';
+const otherLabel = otherLang === 'zh' ? '中文' : 'EN';
+const href = siblingHref ?? fallbackHref ?? (otherLang === 'zh' ? '/zh/' : '/');
+const hasSibling = Boolean(siblingHref);
+---
+<a
+  href={href}
+  data-lang-set={otherLang}
+  title={hasSibling ? `Switch to ${otherLabel}` : `Switch to ${otherLabel} (post not translated; goes to ${otherLang === 'zh' ? '中文首页' : 'home'})`}
+  class="text-sm font-mono text-fg-muted hover:text-fg no-underline hover:no-underline"
+>
+  {otherLabel}
+</a>
+<script>
+  document.querySelectorAll<HTMLAnchorElement>('[data-lang-set]').forEach((el) => {
+    el.addEventListener('click', () => {
+      const v = el.getAttribute('data-lang-set');
+      if (v === 'zh' || v === 'en') localStorage.setItem('lang-pref', v);
+    });
+  });
+</script>

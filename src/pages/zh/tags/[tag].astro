@@ -1,12 +1,12 @@
 ---
 import { getCollection } from 'astro:content';
-import BaseLayout from '../../layouts/BaseLayout.astro';
-import LocalTime from '../../components/LocalTime.astro';
-import { baseFromFilePath, postUrl } from '../../lib/lang';
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import LocalTime from '../../../components/LocalTime.astro';
+import { baseFromFilePath, postUrl } from '../../../lib/lang';
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts', ({ data }) =>
-    (import.meta.env.PROD ? data.draft !== true : true) && data.lang === 'en',
+    (import.meta.env.PROD ? data.draft !== true : true) && data.lang === 'zh',
   );
   const tagSet = new Set<string>();
   for (const p of posts) for (const t of p.data.tags) tagSet.add(t);
@@ -23,9 +23,9 @@ export async function getStaticPaths() {
 
 const { tag, posts } = Astro.props;
 ---
-<BaseLayout title={`#${tag}`} description={`Posts tagged #${tag}`} lang="en">
+<BaseLayout title={`#${tag}`} description={`#${tag} 标签下的文章`} lang="zh">
   <section class="max-w-content mx-auto">
-    <p class="text-sm text-fg-muted m-0"><a href="/tags/" class="text-fg-muted hover:text-brand no-underline hover:underline">← all tags</a></p>
+    <p class="text-sm text-fg-muted m-0"><a href="/zh/tags/" class="text-fg-muted hover:text-brand no-underline hover:underline">← 所有标签</a></p>
     <h1 class="font-serif font-bold text-3xl mt-2 mb-8">#{tag}</h1>
     <ul class="list-none p-0 m-0 space-y-6">
       {posts.map((post) => (
@@ -34,7 +34,7 @@ const { tag, posts } = Astro.props;
             <LocalTime iso={post.data.date.toISOString()} precision="date" />
           </div>
           <h2 class="font-serif font-bold text-xl m-0">
-            <a href={postUrl(baseFromFilePath(post.filePath ?? ''), 'en')} class="text-fg no-underline hover:text-brand hover:no-underline">{post.data.title}</a>
+            <a href={postUrl(baseFromFilePath(post.filePath ?? ''), 'zh')} class="text-fg no-underline hover:text-brand hover:no-underline">{post.data.title}</a>
           </h2>
           {post.data.description && (
             <p class="mt-1 mb-0 text-fg-muted text-sm">{post.data.description}</p>
