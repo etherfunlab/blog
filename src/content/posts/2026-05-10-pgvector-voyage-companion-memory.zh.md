@@ -62,6 +62,8 @@ CREATE INDEX companion_memories_embedding_idx
   WITH (lists = 100);
 ```
 
+> 注：上面的 DDL 为方便阅读做了简化。实际 migration（`0003_memory.sql`）还包含一个 `session_id` FK 到 `engine.chat_sessions(id) ON DELETE CASCADE`，索引也用 partial index（按 `instance_id IS NULL` / `IS NOT NULL` 各一份）而非全表索引，这样每条非向量索引只覆盖单一层。
+
 几个值得展开说的取舍：
 
 - **两层共用一张表。** Profile 记忆 `instance_id IS NULL`；relationship 记忆 `instance_id = <persona_instance_id>`。语义切分放在查询里（`WHERE instance_id IS NULL` vs `WHERE instance_id = $1`），不开两张物理表。Migration 面更小，不重复维护索引。

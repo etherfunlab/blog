@@ -62,6 +62,8 @@ CREATE INDEX companion_memories_embedding_idx
   WITH (lists = 100);
 ```
 
+> Note: the DDL above is simplified for readability. The production migration (`0003_memory.sql`) also includes a `session_id` FK to `engine.chat_sessions(id) ON DELETE CASCADE`, and uses partial indexes (one per layer, predicated on `instance_id IS NULL` / `IS NOT NULL`) rather than full-table ones, so each non-vector index covers only one layer.
+
 A few choices worth flagging:
 
 - **One table for both layers.** Profile memory has `instance_id IS NULL`; relationship memory has `instance_id = <persona_instance_id>`. The semantic split lives in queries (`WHERE instance_id IS NULL` vs `WHERE instance_id = $1`) rather than two physical tables. Less migration surface, no duplicated indexes.
