@@ -7,7 +7,7 @@ draft: false
 lang: en
 ---
 
-[Yesterday's post](/posts/2026-05-10-pgvector-voyage-companion-memory/) showed a schema with a `category TEXT` column. The column does exist in production migrations (`0006_memory_category.sql`). Honest disclosure, though: nothing was *using* it. No write path was setting it, no retrieval path was reading it — every row had `category = NULL`. The line at the end of that post about "a small Sonnet 4.6 prompt that emits 0-3 candidate memories per turn" was the same: *forward-looking* design intent, not running code. The actual production engine when that post went out was: every chat turn ended by inserting the user's raw half-sentence into the profile layer as that user's "profile". That's not a profile. That's a raw turn dump.
+[Yesterday's post](/posts/2026-05-10-pgvector-voyage-companion-memory/) showed a schema with a `category TEXT` column. Honest disclosure: that DDL was a *forward-looking* simplification — the production migration didn't actually have that column at the time, and no write path was filling it. The line at the end of that post about "a small Sonnet 4.6 prompt that emits 0-3 candidate memories per turn" was the same — design intent, not running code. The actual production engine when that post went out was: every chat turn ended by inserting the user's raw half-sentence into the profile layer as that user's "profile". That's not a profile. That's a raw turn dump.
 
 PR #5–#8 made both promises real. This post is the engineering follow-up: what got built, why a background dreaming pipeline is needed at all, and how the next pass — time decay and importance scoring — will look.
 
@@ -21,13 +21,13 @@ It worked, but it had three problems:
 
 1. **No extraction.** "I worked till 10 again" is a raw sentence, not a fact. The thing worth remembering long-term is "she's been under work pressure recently." The model saw a pile of raw sentences each turn and had to reconstruct structure on the fly.
 2. **No classification.** "Lives in Shanghai," "likes jazz," "broke up last week," "her mother is pressuring her to marry" — four facts with very different semantic weights, all sorted by the same cosine into the same bullet list. When the model wanted to "ask about her work," what it sometimes retrieved was "lives in Shanghai."
-3. **Schema had structure but nothing used it.** The `category` column was in the schema but no writer was setting it and no retrieval was reading it; the extraction-prompt paragraph at the end of yesterday's post was the same — *forward-looking design intent*, not the running code.
+3. **No schema-level structure yet.** The `category` column appeared in yesterday's DDL but the production migration didn't have it and nothing was writing to it; the extraction-prompt paragraph at the end of that post was the same — *forward-looking design intent*, not the running code.
 
 ## PR #5–#8
 
 The four PRs that closed this loop:
 
-- **PR #5** — wired the existing `category` column through to the Rust side: `MemoryRepo::upsert/search/MemoryRow` got an `Option<&str>` category parameter end-to-end. Writers pass `None` for now (the raw-turn writer has no category info to fill). The point was to lock the interface shape so PR #6's classifier could plug in without a backfill.
+- **PR #5** — `0006_memory_category.sql` adds the `category TEXT` column, and `MemoryRepo::upsert/search/MemoryRow` get an `Option<&str>` parameter threaded through. Writers pass `None` for now (the raw-turn writer has no category info to fill). The point was to lock the schema and interface shape so PR #6's classifier could plug in without a backfill.
 - **PR #6** — new `pipeline::dreaming` module (with 7 unit tests). A tokio background sweeper: scans idle sessions (30 min of silence), runs an LLM extraction + classification step, writes results back to the profile layer.
 - **PR #7** — retrieval renders by category. A single `ROW_NUMBER() OVER (PARTITION BY category)` query takes the top-2 per category (5 categories), and the prompt now has labeled subsections like `[fact]` / `[preference]` / `[recent event]` / `[emotion]` / `[relationship]`.
 - **PR #8** — sweeper picker rewritten as `UPDATE ... WHERE id IN (SELECT FOR UPDATE SKIP LOCKED) RETURNING ...`, multi-instance safe with crash recovery (a stuck claim gets re-grabbed by another worker after the `claim_stale` threshold).

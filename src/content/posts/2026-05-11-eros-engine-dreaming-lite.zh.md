@@ -7,7 +7,7 @@ draft: false
 lang: zh
 ---
 
-[上一篇](/zh/posts/2026-05-10-pgvector-voyage-companion-memory/) 的 schema 里写了一列 `category TEXT`。这列在 production migration（`0006_memory_category.sql`）里确实存在，但坦白讲：写入路径根本没人填它 — 整张表 `category` 全是 NULL，retrieval 也没在读。文末那段「我们用一段 Sonnet 4.6 的小 prompt，每 turn 产出 0-3 条候选记忆」描述同样是 *forward-looking* 的设计意图，不是当时跑的代码。也就是说昨天发文时候的 production engine 真实形态是：每轮聊天结束后把「用户那半句」原文塞进 profile 层，作为该用户的「画像」。这显然不是画像 — 是 raw turn dump。
+[上一篇](/zh/posts/2026-05-10-pgvector-voyage-companion-memory/) 的 schema 里写了一列 `category TEXT`，但坦白讲：那段 DDL 是 *forward-looking* 的简化版 — 当时 production migration 里还没真加这列，写入路径自然也没在填。文末那段「我们用一段 Sonnet 4.6 的小 prompt，每 turn 产出 0-3 条候选记忆」描述同样是设计意图，不是当时跑的代码。也就是说昨天发文时候的 production engine 真实形态是：每轮聊天结束后把「用户那半句」原文塞进 profile 层，作为该用户的「画像」。这显然不是画像 — 是 raw turn dump。
 
 PR #5–#8 把这两个空头承诺一起补完了。这篇是工程续集：实装了什么、为什么需要一个后台 dreaming 流水线，以及下一步打算怎么打磨。
 
@@ -21,13 +21,13 @@ PR #5–#8 把这两个空头承诺一起补完了。这篇是工程续集：实
 
 1. **没有抽取**。「我今天加班到十点」是 raw 句子，不是事实；真正想长期记的是「她最近工作压力大」。模型每轮都看到一堆 raw 句子，得自己脑补结构。
 2. **没有分类**。「住在上海」「喜欢爵士」「上周分手」「她妈叫她结婚」这四类信息的语义权重完全不同，但都按同一个 cosine 排序进同一个 bullet list。LLM 在写「关心一下她的工作」时召回到的可能是「住在上海」。
-3. **schema 有结构但没用上**。`category` 列加进了 schema，但写入路径没在填、retrieval 也没在读；昨天文末那段 extraction prompt 同样属于 *将来* 的设计意图，不是当时跑的代码。
+3. **没有 schema-level 结构**。`category` 列在昨天的 DDL 里出现，但当时 production migration 还没加，写入路径自然没在填；昨天文末那段 extraction prompt 同样属于 *将来* 的设计意图，不是当时跑的代码。
 
 ## PR #5–#8
 
 四个 PR 把这条线补完：
 
-- **PR #5** — 把已经在 schema 里的 `category` 接通到 Rust 侧：`MemoryRepo::upsert/search/MemoryRow` 全链路加上 `Option<&str>` 参数。Writer 先一律传 `None`（raw turn writer 没分类信息可填），先把接口形状定下来，让 PR #6 的分类器接上来时不需要 backfill。
+- **PR #5** — `0006_memory_category.sql` 加 `category TEXT` 列 + `MemoryRepo::upsert/search/MemoryRow` 全链路接上 `Option<&str>` 参数。Writer 先一律传 `None`（raw turn writer 没分类信息可填），先把 schema 和接口形状定下来，让 PR #6 的分类器接上来时不需要 backfill。
 - **PR #6** — 新增 `pipeline::dreaming` 模块（含 7 个单元测试）。tokio 后台 sweeper：扫 idle session（30 min 静默后），LLM 抽取 + 分类，写回 profile 层。
 - **PR #7** — 检索端按 category 分组渲染。一条 `ROW_NUMBER() OVER (PARTITION BY category)` SQL 把 5 类各取 top-2，prompt 里改成多个带 `[标签]` 的子段，比如 `[客观事实]` / `[偏好]` / `[最近发生]` / `[情绪倾向]` / `[人际关系]`。
 - **PR #8** — sweeper picker 改成 `UPDATE ... WHERE id IN (SELECT FOR UPDATE SKIP LOCKED) RETURNING ...`，多实例并发安全 + 崩溃自愈（`claim_stale` 阈值后被别的 worker 重抢）。
