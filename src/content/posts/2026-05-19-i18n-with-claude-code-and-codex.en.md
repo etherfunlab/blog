@@ -1,6 +1,6 @@
 ---
 title: From 3 to 16 locales — an i18n translation workflow paired between Claude Code and Codex CLI
-description: Two weeks scaling a Nuxt 4 project from 3 to 16 locales. This post is about the concrete craft decisions — which step belongs to Claude Code, which to Codex CLI, why they don't mix, how to recover when two parallel codex writers silently trample each other's directories, and one underlying rule that runs through every translation flow we use: whoever writes, the other reviews.
+description: "Two weeks scaling a Nuxt 4 project from 3 to 16 locales. This post is about the concrete craft decisions — which step belongs to Claude Code, which to Codex CLI, why they don't mix, how to recover when two parallel codex writers silently trample each other's directories, and one underlying rule that runs through every translation flow we use: whoever writes, the other reviews."
 date: 2026-05-19
 tags: [i18n, nuxt, vue, claude-code, codex, agent-workflow]
 draft: false
