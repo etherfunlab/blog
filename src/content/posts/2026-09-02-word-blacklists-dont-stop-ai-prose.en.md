@@ -38,7 +38,7 @@ It has a formal name. Wikipedia's [Signs of AI writing](https://en.wikipedia.org
 
 The same page treats the rule of three, three parallel items in a row, as a separate marker.
 
-There is one public count. The Washington Post analysed **328,744** publicly shared English ChatGPT messages, drawn from 37,929 conversations, restricted to gpt-4o and to messages of at least ten words, spanning May 2024 through the end of July 2025. From that analysis:
+There is one public count. The Washington Post analysed **328,744** publicly shared English ChatGPT messages, drawn from 37,929 conversations, restricted to `gpt-4o` and to messages of at least ten words, spanning May 2024 through the end of July 2025. From that analysis:
 
 > ChatGPT frequently uses versions of the phrase "not just X, but Y," which appeared in 6 percent of chats in July.
 
@@ -55,7 +55,7 @@ The documented part is that alignment compresses output diversity:
 
 Two pieces of common phrasing are worth correcting against those papers. A mode is the most typical, highest-probability output, so "the model gets pushed toward the average" describes the wrong statistic. And the driver is post-alignment training as a whole rather than the reward function by itself.
 
-Why this particular frame gets reinforced has no settled answer. The closest available account is that human reviewers scored responses using the construction highly, because it gives the impression of nuance and insight. That appears in Wikipedia's entry and on one aggregator, with the wording differing between them, and the Atlantic piece itself sits behind a paywall, so treat it as reported rather than quoted. Beyond that, two elaborations circulate, both speculative: that rejected responses skew short and flat while chosen ones skew expansive, teaching the model to name the simpler reading before discarding it; and that contrastive structure occupies high-entropy states useful for extending a reasoning trace. The author of the second uses the words "I suspect" and cites no data.
+Why this particular frame gets reinforced has no settled answer. The closest available account is that human reviewers scored responses using the construction highly, because it "gives the impression of nuance and insight". That appears in Wikipedia's entry and on one aggregator, with the wording differing between them, and the Atlantic piece itself sits behind a paywall, so treat it as reported rather than quoted. Beyond that, two elaborations circulate, both speculative: that rejected responses skew short and flat while chosen ones skew expansive, teaching the model to name the simpler reading before discarding it; and that contrastive structure occupies high-entropy states useful for extending a reasoning trace. The author of the second uses the words "I suspect" and cites no data.
 
 A thread on Hacker News discussing the frame produced no mechanism either, but it did produce a caution worth keeping: some human writers use antithesis heavily by preference. One commenter, writing from the autism spectrum, reported that prose they wrote in 2010 now gets flagged as machine-generated. The frame is a prior, not evidence.
 
@@ -190,7 +190,7 @@ The shape is shared: **a rule written to remove things, handed to a model, overs
 
 ## Measured
 
-Scanning our own technical document library for this frame returns 378 hits.
+Scanning our own technical document library for this frame, counted in matching lines: 370 before the rule landed, 387 after the two documents written the day it did. The number grows as we write, so any recount has to name the commit it scanned.
 
 The counterintuitive part: **most of them pass the test.** Their X side has a real source — dirty data from a retired model, a judgement an earlier document stated outright, a reading trap flagged in an audit report. So the rule was never turned loose on the archive. It operates at drafting only.
 
@@ -205,15 +205,17 @@ Two open-source skills do the editing work here, both MIT:
 
 A well-made Chinese-language entry point to the topic is the Bilibili video [《为什么 AI 写的东西一眼就能看出来？我做了个去AI味技能》](https://www.bilibili.com/video/BV1uQ8E6LE6G/) (2026-08-19). Its author gave twelve models the same brief, an explainer on the TCP three-way handshake, and counted: ten of twelve openings converged, 302 three-part constructions in total, up to 22 em dashes in a single piece, with "不是 A 而是 B" ranked worst.
 
-Two caveats. Those are the author's own measurements rather than third-party research, and the video is sponsored. Also, the four-layer "humanizer" demonstrated in it is a skill he generates live from a prompt during the video, and **shares only a name with blader/humanizer**.
+Two caveats. Those are the author's own measurements rather than third-party research, Also, the four-layer "humanizer" demonstrated in it is a skill he generates live from a prompt during the video, and **shares only a name with blader/humanizer**.
 
 ## This article's own score
 
-Scanning this piece under the same rule returns 15 hits.
+The Chinese edition can be scanned with one regular expression, which returns 15 matching lines: seven name or quote the construction, eight are real uses, one was cut. English resists that. The family spreads across "not X, but Y", "rather than", "X, not Y" and half a dozen other surfaces, and no single pattern catches them without also catching ordinary negation, so this count is a manual pass rather than a script.
 
-- **Seven name or quote the construction**, including both example sentences above. Mention is not use.
-- **Eight are real uses**, each with a source I can name. The clearest is "the denominator is conversations, not messages": that misreading has a source, since the corpus is reported in messages while the 6 percent is not.
-- **One was deleted**: "it is a drafting gate, not a cleanup tool." The first clause had already finished the sentence, so the negative half carried nothing.
+By hand, this article uses the construction about a dozen times. Roughly half of those name or quote it, including both example sentences above; mention is not use. The rest are real uses with a source I can name, the clearest being "the denominator is conversations, not messages" — that misreading has a source, since the corpus is reported in messages while the 6 percent is not.
+
+**One was deleted**: "it is a drafting gate, not a cleanup tool." The first clause had already finished the sentence, so the negative half carried nothing.
+
+That the English count is approximate and the Chinese one exact is itself worth noticing. A rule enforceable by script in one language may only be enforceable by a reader in another.
 
 One further rule of ours got in the way. Naming the en dash character requires printing it, and the conventions forbid it in body text. The Chinese edition writes the code point instead.
 
