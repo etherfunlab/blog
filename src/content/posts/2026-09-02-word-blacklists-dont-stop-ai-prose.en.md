@@ -55,7 +55,7 @@ The documented part is that alignment compresses output diversity:
 
 Two pieces of common phrasing are worth correcting against those papers. A mode is the most typical, highest-probability output, so "the model gets pushed toward the average" describes the wrong statistic. And the driver is post-alignment training as a whole rather than the reward function by itself.
 
-Why this particular frame gets reinforced has no settled answer. The one sourced statement available is that a leading theory has human reviewers rewarding it during training for sounding insightful. Beyond that, two elaborations circulate, both speculative: that rejected responses skew short and flat while chosen ones skew expansive, teaching the model to name the simpler reading before discarding it; and that contrastive structure occupies high-entropy states useful for extending a reasoning trace. The author of the second uses the words "I suspect" and cites no data.
+Why this particular frame gets reinforced has no settled answer. The closest available account is that human reviewers scored responses using the construction highly, because it gives the impression of nuance and insight. That appears in Wikipedia's entry and on one aggregator, with the wording differing between them, and the Atlantic piece itself sits behind a paywall, so treat it as reported rather than quoted. Beyond that, two elaborations circulate, both speculative: that rejected responses skew short and flat while chosen ones skew expansive, teaching the model to name the simpler reading before discarding it; and that contrastive structure occupies high-entropy states useful for extending a reasoning trace. The author of the second uses the words "I suspect" and cites no data.
 
 A thread on Hacker News discussing the frame produced no mechanism either, but it did produce a caution worth keeping: some human writers use antithesis heavily by preference. One commenter, writing from the autism spectrum, reported that prose they wrote in 2010 now gets flagged as machine-generated. The frame is a prior, not evidence.
 
@@ -116,8 +116,10 @@ The etymologies differ sharply in how well they are attested:
 | Word | What is documented |
 |---|---|
 | **赋能** | Corresponds to *empowerment*, from management theory, traceable to Follett in the 1920s. Solid. |
-| **颗粒度** | Appears in Chinese national standard GB/T 10558-**1989**, on measuring photographic granularity. The computing register uses 粒度 instead. No link to management consulting, and the split between the two forms is unstudied. |
-| **对齐** | The Strategic Alignment Model (Henderson and Venkatraman, 1993) did appear in *IBM Systems Journal*, but Chinese scholarship rendered it 战略匹配, so that transmission path breaks. The workplace sense is most likely a direct translation of spoken "align" — a folk account, with no corpus-level study behind it. |
+| **颗粒度** | Appears in Chinese national standard GB/T 10558-**1989**, on measuring root-mean-square photographic granularity. The computing register uses 粒度 instead. No link to management consulting, and the split between the two forms is unstudied. |
+| **对齐** | The Strategic Alignment Model (Henderson and Venkatraman, 1993) did appear in *IBM Systems Journal* 32(1), but the usual Chinese rendering is 战略一致性, so that transmission path breaks. The workplace sense is most likely a direct translation of spoken "align" — a folk account, with no corpus-level study behind it. |
+
+Two of these need splitting by sense. 对齐 as ML alignment and 闭环 as a control-theory closed loop are defined terms and stay protected; 对齐一下 and 形成商业闭环 in a meeting are jargon and go. The test does not change: does the word refer to anything here?
 
 **The conclusion for this line: the word cannot be rescued.**
 
