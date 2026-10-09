@@ -10,6 +10,7 @@ export default {
         serif: ['var(--font-serif)'],
         sans: ['var(--font-sans)'],
         mono: ['var(--font-mono)'],
+        brand: ['var(--font-brand)'],
       },
       colors: {
         bg: 'var(--bg)',
