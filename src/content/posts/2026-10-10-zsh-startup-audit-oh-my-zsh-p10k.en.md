@@ -1,13 +1,13 @@
 ---
 title: "A zsh Startup Audit, and What .zshrc, oh-my-zsh and powerlevel10k Each Do"
-description: "A daily-driver Mac took half a second to open a new terminal tab. zprof put nearly 80% of that on conda's shell hook, with the rest going to compinit running twice. Lazy-loading conda and moving a completions directory ahead of oh-my-zsh brought startup to 0.07 s. This post covers what the three config layers are for, how to measure, what we changed, and a trap that makes powerlevel10k look slow when it isn't."
+description: "A daily-driver Mac took half a second to open a new terminal tab. zprof put nearly 80% of that on conda's shell hook, and an installer had compinit running a second time. Lazy-loading conda and moving a completions directory ahead of oh-my-zsh brought startup to 0.07 s. This post covers what the three config layers are for, how to measure, what we changed, and a trap that makes powerlevel10k look slow when it isn't."
 date: 2026-10-10
 tags: [zsh, oh-my-zsh, powerlevel10k, shell, dev-environment, macos]
 draft: true
 lang: en
 ---
 
-We have a Mac we use for daily development. The terminal is iTerm2 with zsh, the prompt is powerlevel10k. Opening a new tab meant waiting half a second before typing. Half a second does not sound like much, but it adds up over a few dozen tabs a day, and this kind of slowness grows gradually. One tool's installer appends two lines, the next appends three, and no single step ever feels like the moment to stop and look.
+We have a Mac we use for daily development. The terminal is iTerm2 with zsh and the prompt is powerlevel10k. Opening a new tab meant waiting half a second before typing. Half a second does not sound like much, but it adds up over a few dozen tabs a day, and this kind of slowness grows gradually. One tool's installer appends two lines, the next appends three, and no single step ever feels like the moment to stop and look.
 
 This time we stopped and looked. The numbers came out like this.
 
@@ -121,7 +121,7 @@ Every new shell starts a Python process, has conda print a set of shell function
 
 The cleanest route is to never run `conda init` at all and to wrap every project command in `conda run -n <env>`. That is our default internally, and the optional section at the end expands on it. This machine had already been initialized, and `python` resolving to base is something we use all day. Ripping that out means retraining habits, so here we chose to keep it and make it cheap.
 
-The fix is to lazy-load the hook. The idea is that after base is activated, what the shell has gained is a fixed set of environment variables and a PATH prefix. Those can be written down statically. Nothing needs Python to compute them each time. The conda shell functions are only needed the first time someone types `conda`, and that is when the real hook gets loaded.
+The fix is to lazy-load the hook. After base is activated, all the shell has gained is a fixed set of environment variables and a PATH prefix. Those can be written down statically, with no Python run to compute them each time. The conda shell functions are only needed the first time someone types `conda`, and that is when the real hook gets loaded.
 
 ```sh
 # >>> conda (lazy) >>>
@@ -271,7 +271,7 @@ There are only four rules.
 - No `conda init`, no `conda activate`. Everything inside an environment is written as `conda run -n <env_name> <command>`. The reason is the first half of this post. Once conda is in `.zshrc`, every shell pays for it, and stacking several Python paths on PATH is how commands get intercepted unexpectedly.
 - Secrets and RPC URLs live in the project's `.env`, listed in `.gitignore`. Never in `.zshrc`, never in code.
 
-One behavior of `conda run` worth knowing. By default it buffers the child process's output, so a long-running task may show nothing until it finishes. Add `--no-capture-output` to get live output back.
+One `conda run` behavior to know about. By default it buffers the child process's output, so a long-running task may show nothing until it finishes. Add `--no-capture-output` to get live output back.
 
 ---
 

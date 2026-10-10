@@ -1,6 +1,6 @@
 ---
 title: "一次 zsh 启动体检，顺便说清 .zshrc、oh-my-zsh 和 powerlevel10k 各管什么"
-description: "一台日常开发用的 Mac，新开终端要等半秒。用 zprof 量下来，近八成时间花在 conda 的 shell hook 上，其余是 compinit 跑了两遍。把 conda 改成按需加载、把补全目录挪到 oh-my-zsh 前面，启动降到 0.07 秒。文中给出三层配置的分工、量法、改法，以及一个会把 powerlevel10k 测出假数字的坑。"
+description: "一台日常开发用的 Mac，新开终端要等半秒。用 zprof 量下来，近八成时间花在 conda 的 shell hook 上，另有一个安装脚本让 compinit 多跑了一遍。把 conda 改成按需加载、把补全目录挪到 oh-my-zsh 前面，启动降到 0.07 秒。文中给出三层配置的分工、量法、改法，以及一个会把 powerlevel10k 测出假数字的坑。"
 date: 2026-10-10
 tags: [zsh, oh-my-zsh, powerlevel10k, shell, dev-environment, macos]
 draft: true
@@ -121,7 +121,7 @@ unset __conda_setup
 
 最干净的路是从一开始就不跑 `conda init`，每个项目的命令都用 `conda run -n <env>` 包起来执行。这是我们内部的默认做法，文末 optional 一节会展开。这台机器已经 init 过，`python` 指向 base 这件事日常在用，拔掉要改一圈习惯，所以这里选的是留着它，把它变便宜。
 
-做法是把 hook 改成按需加载。思路是，激活 base 之后 shell 里多出来的东西其实是一组固定的环境变量和一段 PATH，这些可以直接写死，不需要每次让 Python 算一遍。真正需要 conda 那套函数的时候，也就是第一次敲 `conda` 命令的时候，再把 hook 加载进来。
+做法是把 hook 改成按需加载。思路是，激活 base 之后 shell 里多出来的，其实只是一组固定的环境变量和一段 PATH 前缀，这些可以直接写死，不需要每次让 Python 算一遍。真正需要 conda 那套函数的时候，也就是第一次敲 `conda` 命令的时候，再把 hook 加载进来。
 
 ```sh
 # >>> conda (lazy) >>>
@@ -161,7 +161,7 @@ CONDA_SHLVL=0 conda shell.zsh activate base
 
 回到 zprof 那张表，`compinit` 的 calls 是 2。
 
-`compinit` 是 zsh 补全系统的初始化函数。它要扫一遍 `fpath` 里所有目录，收集 `_` 开头的补全定义，生成一个缓存文件 `.zcompdump`。`compaudit` 是它内部做的安全检查，看这些目录有没有被别的用户可写，是这两样里真正花时间的部分。
+`compinit` 是 zsh 补全系统的初始化函数。它要扫一遍 `fpath` 里所有目录，收集 `_` 开头的补全定义，生成一个缓存文件 `.zcompdump`。`compaudit` 是它内部做的安全检查，看这些目录有没有被别的用户可写，两样里花时间的主要是它。
 
 第二遍是哪来的。翻 `.zshrc` 找到了。
 
@@ -203,7 +203,7 @@ powerlevel10k 的配置文件有一千七百多行，几乎全是 `p10k configur
 
 `POWERLEVEL9K_DISABLE_HOT_RELOAD=true`。开着。hot reload 开着时，powerlevel10k 每次画提示符前都会把所有 `POWERLEVEL9K_*` 参数算一个签名，和上次比对，变了就重新初始化，配置文件里的注释说这要多花一两毫秒。关掉以后省下这一步，改了配置要 `p10k reload` 或重开终端才生效。
 
-`POWERLEVEL9K_VCS_DISABLED_WORKDIR_PATTERN='~'`。这条让 git 状态段在家目录本身关闭，子目录不受影响。有人会把整个家目录做成 git 仓库来管 dotfiles，那种仓库又大又没什么可看的状态，在那里算 git 状态是纯浪费。
+`POWERLEVEL9K_VCS_DISABLED_WORKDIR_PATTERN='~'`。这条让 git 状态段在家目录本身关闭，子目录不受影响。有人会把整个家目录做成 git 仓库来管 dotfiles，那种仓库很大，状态也没什么可看的，在那里算 git 状态是纯浪费。
 
 git 状态本身由一个叫 `gitstatusd` 的后台进程算，powerlevel10k 第一次运行时会把二进制下载到 `~/.cache/gitstatus/`。它是异步的，提示符先画出来，git 信息算好以后再补上去，所以仓库再大也不会卡住回车。
 
@@ -269,9 +269,9 @@ conda run -n <env_name> python main.py
 - 不在全局 Python 下跑任何项目，每个项目必须有自己的环境。
 - 包用 `uv pip` 装，CLI 工具用 `uv tool` 装。uv 并行下载加硬链接，装一个环境是秒级的事，pip 是分钟级。
 - 不跑 `conda init`，不 `conda activate`，环境内的一切操作都写成 `conda run -n <env_name> <command>`。理由就是本文前半篇，conda 一旦进了 `.zshrc`，每个 shell 都要替它付钱，多个 Python 路径叠在 PATH 上还会出现命令被意外拦截的问题。
-- 密钥和 RPC 地址一类的东西放项目目录的 `.env`，列进 `.gitignore`，不进 `.zshrc`，也不进代码。
+- 密钥、RPC 地址这类配置放项目目录的 `.env`，列进 `.gitignore`，不进 `.zshrc`，也不进代码。
 
-`conda run` 有一个使用上的小差别要知道。它默认会缓冲子进程的输出，跑长时间任务时日志可能攒到结束才一起出来，加 `--no-capture-output` 就恢复实时输出。
+`conda run` 有一个行为要知道。它默认会缓冲子进程的输出，跑长时间任务时日志可能攒到结束才一起出来，加 `--no-capture-output` 就恢复实时输出。
 
 ---
 
