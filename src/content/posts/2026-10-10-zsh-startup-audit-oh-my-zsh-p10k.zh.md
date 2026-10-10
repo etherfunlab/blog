@@ -54,7 +54,7 @@ macOS 的默认 shell 已经是 zsh，不用另外切。装完在 iTerm2 的 Pro
 
 一个典型的 oh-my-zsh 加 powerlevel10k 环境，交互式 shell 启动时会依次读这几样。
 
-`~/.zshenv` 每个 zsh 进程都读，包括脚本和 `zsh -c`。这里只放 PATH 一类必须对非交互 shell 也生效的设置。我们这台机器上它只做一件事，把 Homebrew 装的 rustup 的 shim 目录放到 `~/.cargo/bin` 前面，否则旧版 rustup 留下的死链接会抢先。这条放在 `.zshrc` 里就会漏掉编辑器和 CI 起的 shell，所以它必须在 `.zshenv`。
+`~/.zshenv` 每个 zsh 进程都读，包括脚本和 `zsh -c`。这里只放 PATH 一类必须对非交互 shell 也生效的设置。我们这台机器上它除了 source 一下 `~/.cargo/env`，就只做一件事，把 Homebrew 装的 rustup 的 shim 目录放到 `~/.cargo/bin` 前面，否则旧版 rustup 留下的死链接会抢先。这条放在 `.zshrc` 里就会漏掉编辑器和 CI 起的 shell，所以它必须在 `.zshenv`。
 
 `~/.zshrc` 只有交互式 shell 读。oh-my-zsh 的入口、主题选择、插件列表、别名、各种工具安装脚本追加的环境变量，都在这里。它是三层里最容易长胖的一层，因为几乎所有安装程序都默认往它末尾追加。
 
@@ -87,7 +87,9 @@ zprof | head -20
 zsh -c 'source profile.zsh'
 ```
 
-我们这台机器跑出来的前几行是这样，单位毫秒。
+脚本这条路有一个副作用。`zsh -c` 起的 shell 和交互 shell 的 `fpath` 不完全一样，oh-my-zsh 可能因此重建一次补全缓存，表里会多出 `compdump` 和几百次 `compdef`，那是测量本身带来的，不是 `.zshrc` 的常态开销。要看常态数字，还是用写进 `.zshrc` 的办法。
+
+我们这台机器在改之前跑出来的前几行是这样，单位毫秒。
 
 ```text
 num  calls   time      self     name
@@ -99,15 +101,20 @@ num  calls   time      self     name
  6)    1     7.52     3.61   (anon) [powerlevel10k.zsh-theme:50]
 ```
 
-zprof 统计到的总时间约 290 毫秒，`__conda_activate` 一项 230 毫秒。第二行 `_omz_source` 是 oh-my-zsh 加载 22 个 lib 和插件文件的总和，20 毫秒，正常。第三、四行 `compaudit` 和 `compinit` 的 calls 列都是 2，这个数字后面会用到。powerlevel10k 自己的初始化加起来十来毫秒。
+zprof 统计到的总时间约 290 毫秒，`__conda_activate` 一项 230 毫秒。第二行 `_omz_source` 是 oh-my-zsh 加载 22 个 lib 和插件文件的总和，20 毫秒，正常。第四行 `compinit` 的 calls 列是 2，这个数字后面会用到。`compaudit` 的两次是 oh-my-zsh 自己的安全检查加 `compinit` 内部的一次，属于常态。powerlevel10k 自己的初始化加起来十来毫秒。
 
 ## conda 的 shell hook
 
-`conda init zsh` 会往 `.zshrc` 里写一段固定格式的代码，开头是 `>>> conda initialize >>>`。它的核心是这一行。
+`conda init zsh` 会往 `.zshrc` 里写一段固定格式的代码，开头是 `>>> conda initialize >>>`。去掉 fallback 分支，它是这样。
 
 ```sh
 __conda_setup="$('/opt/homebrew/Caskroom/miniconda/base/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-eval "$__conda_setup"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    # hook 拿不到时退回 conda.sh 或直接改 PATH，略
+fi
+unset __conda_setup
 ```
 
 每开一个 shell，它都要起一个 Python 进程，让 conda 吐出一段 shell 函数定义，再 `eval` 进来。我们的 conda 配置里 `auto_activate` 是开着的，所以 hook 末尾还带一句 `conda activate base`，再走一遍激活流程。230 毫秒就是这两步加起来。
@@ -142,9 +149,9 @@ conda() {
 CONDA_SHLVL=0 conda shell.zsh activate base
 ```
 
-它会打印出激活 base 时要执行的所有 `export`，照抄即可。路径按自己机器上 miniconda 的位置换。
+它会打印出激活 base 时要执行的所有赋值，值从这里取。其中 `PS1` 不用管，powerlevel10k 会接管提示符；它打印的 `PATH` 是展开后的完整值，只取 conda 加在前面的那两段就够。路径按自己机器上 miniconda 的位置换。
 
-`CONDA_SHLVL=1` 这一行有一个额外作用。真 hook 的末尾有一段判断，`CONDA_SHLVL` 没设置时才会去激活 base。我们预先设成 1，第一次调 `conda` 时真 hook 加载进来，看到已经在 base 里，就不会再激活一遍。之后 `conda activate` 别的环境、`conda deactivate`，走的都是真 hook 的函数，行为和原来一样。
+`CONDA_SHLVL=1` 这一行有一个额外作用。真 hook 的末尾固定带一句 `conda activate base`，不管当时在不在 base 里都会执行。我们预先把 `CONDA_SHLVL` 设成 1、`CONDA_PREFIX` 指向 base，第一次调 `conda` 时真 hook 加载进来，那句 `activate base` 变成对已经激活的 base 做一次重激活，栈深度保持 1，不会叠成两层。代价是第一次调 `conda` 时多起一个 Python 进程，之后 `conda activate` 别的环境、`conda deactivate`，走的都是真 hook 的函数，行为和原来一样。
 
 验证方法是开一个干净的 shell，依次确认 `which python` 指向 base，`conda --version` 能触发加载，`conda activate <env>` 和 `conda deactivate` 之后 PATH 和 `CONDA_SHLVL` 的变化正确。我们三项都过了。
 
@@ -152,9 +159,9 @@ CONDA_SHLVL=0 conda shell.zsh activate base
 
 ## compinit 跑了两遍
 
-回到 zprof 那张表，`compinit` 和 `compaudit` 的 calls 都是 2。
+回到 zprof 那张表，`compinit` 的 calls 是 2。
 
-`compinit` 是 zsh 补全系统的初始化函数。它要扫一遍 `fpath` 里所有目录，收集 `_` 开头的补全定义，生成一个缓存文件 `.zcompdump`。`compaudit` 是它顺手做的安全检查，看这些目录有没有被别的用户可写。两样加起来 27 毫秒，跑一遍是必要开销，跑两遍就是浪费。
+`compinit` 是 zsh 补全系统的初始化函数。它要扫一遍 `fpath` 里所有目录，收集 `_` 开头的补全定义，生成一个缓存文件 `.zcompdump`。`compaudit` 是它内部做的安全检查，看这些目录有没有被别的用户可写，是这两样里真正花时间的部分。
 
 第二遍是哪来的。翻 `.zshrc` 找到了。
 
@@ -169,6 +176,8 @@ autoload -Uz compinit && compinit -C
 一个 CLI 工具的安装脚本，为了让自己的补全生效，往 `.zshrc` 末尾追加了 `fpath` 和一次 `compinit -C`。它的问题在位置。oh-my-zsh 在前面已经跑过一次 `compinit`，这段又在后面跑了一次。第二次还写进了另一个 dump 文件，默认位置 `~/.zcompdump`，oh-my-zsh 用的那份带主机名后缀，两份互不相干。
 
 安装脚本这么写不算错，它不知道用户用不用 oh-my-zsh。该改的是我们这边。
+
+先把账算清楚。第二次 `compinit -C` 的 `-C` 跳过了安全检查，自身只有几毫秒，这一处省下的时间很少，大头在 conda。改它主要是为了只留一次 `compinit`、一份 dump 文件，补全目录统一登记在 oh-my-zsh 那份里。
 
 改法是把 `fpath` 那行挪到 `source $ZSH/oh-my-zsh.sh` 之前，把 `compinit` 那行删掉。
 
@@ -186,19 +195,19 @@ oh-my-zsh 近期的版本会在 dump 文件里记一份 `fpath` 的指纹，`fpa
 
 ## powerlevel10k 这一层
 
-powerlevel10k 的配置文件有一千七百多行，几乎全是 `p10k configure` 生成的。我们原本担心右侧提示符那五十来个段会拖慢每一次回车，量完发现不用担心。
+powerlevel10k 的配置文件有一千七百多行，几乎全是 `p10k configure` 生成的。我们原本担心右侧提示符那四十七个段会拖慢每一次回车，量完发现不用担心。
 
-先说三个和速度直接相关的设置，都在文件末尾。
+先说三个和速度直接相关的设置，前两个在文件末尾，第三个在中间。
 
-`POWERLEVEL9K_INSTANT_PROMPT=verbose`。开着。它的做法是在 `.zshrc` 开头就先把上一次缓存好的提示符画出来，让用户立刻能看到光标，后面的初始化在背后继续。这是为什么 powerlevel10k 要求那段 instant prompt 代码必须放在 `.zshrc` 最前面。它只改善观感，`.zshrc` 没跑完之前敲的命令还是要等。conda 那 230 毫秒照样挡在前面。
+`POWERLEVEL9K_INSTANT_PROMPT=verbose`。开着。它的做法是在 `.zshrc` 开头就先把上一次缓存好的提示符画出来，让用户立刻能看到光标，后面的初始化在背后继续。这是为什么 powerlevel10k 要求那段 instant prompt 代码尽量靠近 `.zshrc` 顶部。它只改善观感，`.zshrc` 没跑完之前敲的命令还是要等。conda 那 230 毫秒照样挡在前面。
 
-`POWERLEVEL9K_DISABLE_HOT_RELOAD=true`。开着。关掉 hot reload 后，powerlevel10k 不会在每次画提示符前检查配置文件有没有改动，改了配置要重开终端或 `exec zsh` 才生效。换来的是每次回车少一次文件检查。
+`POWERLEVEL9K_DISABLE_HOT_RELOAD=true`。开着。hot reload 开着时，powerlevel10k 每次画提示符前都会把所有 `POWERLEVEL9K_*` 参数算一个签名，和上次比对，变了就重新初始化，配置文件里的注释说这要多花一两毫秒。关掉以后省下这一步，改了配置要 `p10k reload` 或重开终端才生效。
 
 `POWERLEVEL9K_VCS_DISABLED_WORKDIR_PATTERN='~'`。这条让 git 状态段在家目录本身关闭，子目录不受影响。有人会把整个家目录做成 git 仓库来管 dotfiles，那种仓库又大又没什么可看的状态，在那里算 git 状态是纯浪费。
 
 git 状态本身由一个叫 `gitstatusd` 的后台进程算，powerlevel10k 第一次运行时会把二进制下载到 `~/.cache/gitstatus/`。它是异步的，提示符先画出来，git 信息算好以后再补上去，所以仓库再大也不会卡住回车。
 
-至于那五十来个段，`asdf`、`nvm`、`pyenv`、`kubectl`、`aws` 这类工具这台机器上一个都没装，powerlevel10k 初始化时查一次命令存不存在，不存在的段之后就不再参与。留着不花钱。
+至于那四十七个段，`asdf`、`nvm`、`pyenv`、`kubectl`、`aws` 这类工具这台机器上一个都没装。每个段带一个很便宜的存在性条件，就是一次参数展开，工具不在就什么都不渲染。留着不花钱。
 
 量法是在一个真实终端里，连续调 20 次 `_p9k_precmd`，再看 zprof。
 
@@ -222,7 +231,7 @@ zprof | head
 
 这次慢下来的两个原因都来自安装脚本往 `.zshrc` 末尾追加代码。它们各自都没错，叠在一起才出问题。防的办法只有一个，每隔一段时间把 `zprof` 跑一遍，看第一行是谁。
 
-一台机器的 `.zshrc` 该多快，没有标准答案。我们这台改完是 0.07 秒，其中 oh-my-zsh 加载 lib 和插件 20 毫秒，`compinit` 15 毫秒，powerlevel10k 初始化十来毫秒。再往下压要换掉 oh-my-zsh，我们觉得不值。
+一台机器的 `.zshrc` 该多快，没有标准答案。我们这台改完是 0.07 秒，其中 oh-my-zsh 加载 lib 和插件 20 毫秒，`compinit` 连同它里面的 `compaudit` 二十多毫秒，powerlevel10k 初始化十来毫秒。再往下压要换掉 oh-my-zsh，我们觉得不值。
 
 ## Optional，miniconda 怎么装，以及我们怎么用它
 
@@ -232,7 +241,7 @@ zprof | head
 brew install --cask miniconda
 ```
 
-装完 conda 在 `/opt/homebrew/Caskroom/miniconda/base/bin/conda`，Homebrew 会把它链到 `/opt/homebrew/bin`，直接能用。不要再跑 `conda init zsh`。
+装完 miniconda 在 `/opt/homebrew/Caskroom/miniconda/base/`，Homebrew 会把它 `condabin` 里的 `conda` 链到 `/opt/homebrew/bin`，直接能用。不要再跑 `conda init zsh`。
 
 选 miniconda 而不直接用 Homebrew 的 Python，看中的是两件事。一是它能给每个项目一个独立环境，Python 版本各自指定，互不影响，系统和 Homebrew 的 Python 一个都不碰。二是环境之间的切换可以完全不经过 shell，这正是我们不跑 `conda init` 的前提。
 

@@ -54,7 +54,7 @@ macOS already ships zsh as the default shell, so there is nothing to switch. Set
 
 A typical oh-my-zsh plus powerlevel10k setup reads these files, in this order, when an interactive shell starts.
 
-`~/.zshenv` is read by every zsh process, including scripts and `zsh -c`. Only things that must also apply to non-interactive shells belong here, PATH above all. On this machine it does exactly one thing. It puts the shim directory of Homebrew's rustup ahead of `~/.cargo/bin`, because dead symlinks left by an older rustup install would otherwise win. Putting that line in `.zshrc` would miss the shells started by editors and CI, so it has to live in `.zshenv`.
+`~/.zshenv` is read by every zsh process, including scripts and `zsh -c`. Only things that must also apply to non-interactive shells belong here, PATH above all. On this machine, apart from sourcing `~/.cargo/env`, it does exactly one thing. It puts the shim directory of Homebrew's rustup ahead of `~/.cargo/bin`, because dead symlinks left by an older rustup install would otherwise win. Putting that line in `.zshrc` would miss the shells started by editors and CI, so it has to live in `.zshenv`.
 
 `~/.zshrc` is read by interactive shells only. The oh-my-zsh entry point, the theme choice, the plugin list, aliases, and every environment variable appended by some tool's installer all live here. It is the layer that gains weight most easily, because nearly every installer defaults to appending to the end of it.
 
@@ -87,7 +87,9 @@ zprof | head -20
 zsh -c 'source profile.zsh'
 ```
 
-The top of the output on this machine, in milliseconds.
+The script route has a side effect. A shell started with `zsh -c` does not have quite the same `fpath` as an interactive one, so oh-my-zsh may rebuild the completion cache once, and the table grows extra `compdump` and several hundred `compdef` rows. That cost belongs to the measurement, not to `.zshrc`. For steady-state numbers, use the in-`.zshrc` method.
+
+The top of the output on this machine before the changes, in milliseconds.
 
 ```text
 num  calls   time      self     name
@@ -99,15 +101,20 @@ num  calls   time      self     name
  6)    1     7.52     3.61   (anon) [powerlevel10k.zsh-theme:50]
 ```
 
-zprof accounted for about 290 ms in total, and `__conda_activate` alone was 230 ms of it. The second row, `_omz_source`, is oh-my-zsh loading 22 lib and plugin files. Twenty milliseconds, which is normal. Rows three and four, `compaudit` and `compinit`, both show 2 in the calls column. That number comes back later. powerlevel10k's own initialization adds up to a little over ten milliseconds.
+zprof accounted for about 290 ms in total, and `__conda_activate` alone was 230 ms of it. The second row, `_omz_source`, is oh-my-zsh loading 22 lib and plugin files. Twenty milliseconds, which is normal. Row four, `compinit`, shows 2 in the calls column. That number comes back later. The two `compaudit` calls are oh-my-zsh's own security check plus the one inside `compinit`, which is normal. powerlevel10k's own initialization adds up to a little over ten milliseconds.
 
 ## conda's shell hook
 
-`conda init zsh` writes a fixed block into `.zshrc`, delimited by `>>> conda initialize >>>`. Its core is this line.
+`conda init zsh` writes a fixed block into `.zshrc`, delimited by `>>> conda initialize >>>`. With the fallback branch trimmed, it looks like this.
 
 ```sh
 __conda_setup="$('/opt/homebrew/Caskroom/miniconda/base/bin/conda' 'shell.zsh' 'hook' 2> /dev/null)"
-eval "$__conda_setup"
+if [ $? -eq 0 ]; then
+    eval "$__conda_setup"
+else
+    # falls back to conda.sh or a plain PATH edit when the hook is unavailable, omitted
+fi
+unset __conda_setup
 ```
 
 Every new shell starts a Python process, has conda print a set of shell function definitions, and `eval`s them. Our conda config has `auto_activate` on, so the hook also ends with `conda activate base`, which runs the activation path once more. The 230 ms is those two steps together.
@@ -142,9 +149,9 @@ Where do these values come from? Ask conda.
 CONDA_SHLVL=0 conda shell.zsh activate base
 ```
 
-It prints every `export` that activating base would run. Copy them. Adjust the path to wherever miniconda lives on your machine.
+It prints every assignment that activating base would run, and the values come from there. Ignore `PS1`, since powerlevel10k owns the prompt. The `PATH` it prints is the fully expanded value, and only the two entries conda prepends are needed. Adjust the path to wherever miniconda lives on your machine.
 
-The `CONDA_SHLVL=1` line does extra work. The real hook ends with a check that only activates base when `CONDA_SHLVL` is unset. Because we preset it to 1, the first `conda` call loads the real hook, which sees that base is already active and skips re-activating it. From then on, `conda activate <other>` and `conda deactivate` go through the real hook's functions and behave exactly as before.
+The `CONDA_SHLVL=1` line does extra work. The real hook always ends with `conda activate base`, whether or not base is already active. Because we preset `CONDA_SHLVL` to 1 and point `CONDA_PREFIX` at base, the first `conda` call loads the real hook and that trailing `activate base` becomes a reactivation of the already-active base. The stack depth stays at 1 instead of doubling up. The cost is one extra Python process on that first `conda` call. From then on, `conda activate <other>` and `conda deactivate` go through the real hook's functions and behave exactly as before.
 
 To verify, open a clean shell and confirm three things in order. `which python` points at base. `conda --version` triggers the load. After `conda activate <env>` and `conda deactivate`, PATH and `CONDA_SHLVL` change the way they should. All three passed here.
 
@@ -152,9 +159,9 @@ One trap to flag ahead of time. If `conda init zsh` is ever run again, it append
 
 ## compinit ran twice
 
-Back to the zprof table. `compinit` and `compaudit` both show 2 calls.
+Back to the zprof table. `compinit` shows 2 calls.
 
-`compinit` initializes zsh's completion system. It walks every directory in `fpath`, collects the completion definitions whose names start with `_`, and writes a cache file, `.zcompdump`. `compaudit` is the security check it runs along the way, looking for directories writable by other users. Together they cost 27 ms. Running once is necessary. Running twice is waste.
+`compinit` initializes zsh's completion system. It walks every directory in `fpath`, collects the completion definitions whose names start with `_`, and writes a cache file, `.zcompdump`. `compaudit` is the security check it runs internally, looking for directories writable by other users, and it is where most of the time goes.
 
 Where did the second run come from? Reading through `.zshrc` turned it up.
 
@@ -169,6 +176,8 @@ autoload -Uz compinit && compinit -C
 A CLI tool's installer, to make its own completions work, appended an `fpath` entry and a `compinit -C` to the end of `.zshrc`. The problem is the position. oh-my-zsh had already run `compinit` further up, this block ran it again further down, and the second run used the default dump file at `~/.zcompdump`, which is a different file from the hostname-suffixed one oh-my-zsh uses.
 
 The installer is not wrong to write this. It cannot know whether the user runs oh-my-zsh. The fix belongs on our side.
+
+First, the honest accounting. The second run is `compinit -C`, and `-C` skips the security check, so it costs only a few milliseconds by itself. The saving here is small. The bulk of the win was conda. The point of fixing it is to end up with one `compinit`, one dump file, and all completion directories registered in the copy oh-my-zsh maintains.
 
 Move the `fpath` line above `source $ZSH/oh-my-zsh.sh` and delete the `compinit` line.
 
@@ -186,19 +195,19 @@ While there, we removed three stale `.zcompdump` files. Two were historical, one
 
 ## The powerlevel10k layer
 
-powerlevel10k's config file is a little over 1,700 lines, almost all of it generated by `p10k configure`. We had assumed the fifty-odd segments on the right side of the prompt would slow down every Enter. Measuring showed otherwise.
+powerlevel10k's config file is a little over 1,700 lines, almost all of it generated by `p10k configure`. We had assumed the 47 segments on the right side of the prompt would slow down every Enter. Measuring showed otherwise.
 
-Three settings at the bottom of the file bear directly on speed.
+Three settings bear directly on speed. Two sit at the bottom of the file, the third in the middle.
 
-`POWERLEVEL9K_INSTANT_PROMPT=verbose`. On. At the very top of `.zshrc` it paints the prompt cached from the previous session, so the cursor appears immediately while initialization continues underneath. This is why powerlevel10k insists that its instant prompt block sit at the very start of `.zshrc`. It improves perception only. A command typed before `.zshrc` finishes still waits. conda's 230 ms was still in the way.
+`POWERLEVEL9K_INSTANT_PROMPT=verbose`. On. Near the top of `.zshrc` it paints the prompt cached from the previous session, so the cursor appears immediately while initialization continues underneath. This is why powerlevel10k asks for its instant prompt block to sit as close to the top of `.zshrc` as possible. It improves perception only. A command typed before `.zshrc` finishes still waits. conda's 230 ms was still in the way.
 
-`POWERLEVEL9K_DISABLE_HOT_RELOAD=true`. On. With hot reload off, powerlevel10k does not check whether the config file changed before every prompt. Config edits need a new terminal or an `exec zsh` to take effect. In exchange, every Enter skips a file check.
+`POWERLEVEL9K_DISABLE_HOT_RELOAD=true`. On. With hot reload enabled, powerlevel10k computes a signature of every `POWERLEVEL9K_*` parameter before each prompt, compares it with the last one, and re-initializes if anything changed. The comment in the config file puts that at one to two milliseconds. Turning it off skips that step, and config edits then need a `p10k reload` or a new terminal to take effect.
 
 `POWERLEVEL9K_VCS_DISABLED_WORKDIR_PATTERN='~'`. This turns the git segment off in the home directory itself, with subdirectories unaffected. Some people make their entire home directory a git repository to manage dotfiles. That repository is large and its status is rarely interesting, so computing it there is pure waste.
 
 Git status itself is computed by a background process called `gitstatusd`, which powerlevel10k downloads into `~/.cache/gitstatus/` on first run. It is asynchronous. The prompt is drawn first and git information is filled in when ready, so no repository size blocks Enter.
 
-As for the fifty-odd segments, `asdf`, `nvm`, `pyenv`, `kubectl`, `aws` and the rest are simply not installed on this machine. powerlevel10k checks once at init whether each command exists, and segments for absent tools drop out of the loop. Leaving them in the list costs nothing.
+As for the 47 segments, `asdf`, `nvm`, `pyenv`, `kubectl`, `aws` and the rest are simply not installed on this machine. Each segment carries a cheap existence condition, a single parameter expansion, and renders nothing when the tool is absent. Leaving them in the list costs nothing.
 
 To measure, in a real terminal, call `_p9k_precmd` twenty times in a row and read zprof.
 
@@ -222,7 +231,7 @@ A line reading `export TOKEN="$(cat ~/.some/token-file)"` can be `$(<~/.some/tok
 
 Both causes of the slowdown came from installers appending code to the end of `.zshrc`. Neither was wrong on its own. Stacked, they were. The only real defense is to run `zprof` every so often and look at who is on the first line.
 
-There is no standard for how fast a `.zshrc` should be. Ours is 0.07 s after the changes, of which oh-my-zsh loading libs and plugins is 20 ms, `compinit` is 15 ms, and powerlevel10k init is a little over ten. Going lower means replacing oh-my-zsh, and we do not think that is worth it.
+There is no standard for how fast a `.zshrc` should be. Ours is 0.07 s after the changes, of which oh-my-zsh loading libs and plugins is 20 ms, `compinit` together with its internal `compaudit` is a little over 20 ms, and powerlevel10k init is a little over ten. Going lower means replacing oh-my-zsh, and we do not think that is worth it.
 
 ## Optional: installing miniconda, and how we use it
 
@@ -232,7 +241,7 @@ This section is for anyone who will run Python projects. The conda section above
 brew install --cask miniconda
 ```
 
-After this, conda is at `/opt/homebrew/Caskroom/miniconda/base/bin/conda`, Homebrew links it into `/opt/homebrew/bin`, and it works as is. Do not run `conda init zsh`.
+After this, miniconda lives under `/opt/homebrew/Caskroom/miniconda/base/`, Homebrew links the `conda` from its `condabin` into `/opt/homebrew/bin`, and it works as is. Do not run `conda init zsh`.
 
 We chose miniconda over Homebrew's Python for two reasons. It gives every project its own environment with its own Python version, touching neither the system Python nor Homebrew's. And switching between environments can bypass the shell entirely, which is the precondition for not running `conda init`.
 

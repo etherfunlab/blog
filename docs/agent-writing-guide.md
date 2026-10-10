@@ -12,22 +12,31 @@ Blog 面向公开读者：开发者、技术合伙人、开源用户、潜在投
 - 这个判断背后的约束是什么。
 - 读者能从我们的实现里带走什么。
 
-## 推荐工作流
+## 收尾流程
 
-写作建议分两步走：
+起草后走 `eros-reports` 的 `reports-publish` 三道工序，blog 不另维护一套：
 
-- **起草** —— 由 Claude Code Opus 系模型完成。Opus 在长篇结构、语气连续性和工程论证上更稳，适合拿到内部上下文（dev-log、源码、schema）之后输出第一稿。
-- **润色** —— 由 Codex GPT 系模型完成。GPT-5.5 这一类模型在事实核查、术语一致性、frontmatter 格式上更稳，适合把第一稿改成可发布版本。
+1. `reports-fact-check` —— Sonnet subagent 只读核事实，出清单不改稿。
+2. `reports-polish` —— 当下 session 自己润，中文走 `human-writing`，英文走 `humanizer`。润之前先 commit 草稿。
+3. `reports-review` —— 跨引擎终审（opus 主驾派 fable，fable 主驾派 opus），SHIP / FIX-FIRST，blocker 清零才 push。
 
-这不是硬性要求，但目前两个家族的强项不重合 —— Opus 容易在复盘类文章里多写一层情绪，GPT 容易在长篇里失去叙事节奏。两阶段交接可以同时拿到两边的优点。
+三道串行，不并行。skill 与 `.memory` 里的理由见 `eros-reports/.claude/skills/reports-*/`。
+那套流程里 eros-reports 专属的部分（`status` 轮换、audit mirror、`precheck.sh` 的 frontmatter schema、GitLab 双推）blog 不适用；blog 的机械预检是 `npm run build` 加 en-dash grep，push 只到 GitHub，Actions 自动部署。
 
 **润色这一道有一条硬边界：它手上只有句子。** 凡是要靠句子之外的事实才能判的问题
 （见「反 AI 腔 § 哪一道拦哪一层」），润色标出位置退回起草，不要自己改。
-交接给润色模型的指令里必须显式带上「格式」一节的标点豁免，否则它会过度执行。
 
-文章末尾的 byline 建议反映实际分工，例如：
+文章末尾的 byline 写实际分工，例如：
 
-> *Prompted by &lt;人名&gt;, written by &lt;起草模型&gt; and revised by &lt;润色模型&gt;*
+> *由 &lt;人名&gt; 提示，&lt;起草模型&gt; 撰写。*
+> *Prompted by &lt;人名&gt;, written by &lt;起草模型&gt;.*
+
+## 语言
+
+- 每篇出 zh、en 两版，文件名同 slug，后缀 `.zh.md` / `.en.md`。
+- **中文版发布用繁体。** 先写简体稿，再用 `opencc -c s2hk` 转繁。用语以香港书面语为主，文法照台湾繁中的习惯；技术词按简中原词直接转繁，不换成台湾或香港译名（`软件`→`軟件`，不改成 `軟體`；`文件`→`文件`，不改成 `檔案`）。
+- 转繁在润色之后、终审之前做，终审审的是繁体成稿。
+- 简体稿不留在仓里，只提交繁体版。
 
 ## 语气
 
