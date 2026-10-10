@@ -3,7 +3,7 @@ title: "A zsh Startup Audit, and What .zshrc, oh-my-zsh and powerlevel10k Each D
 description: "A daily-driver Mac took half a second to open a new terminal tab. About 80% of that was conda's shell hook, and an installer had compinit running a second time. Lazy-loading conda and moving a completions directory ahead of oh-my-zsh brought startup to 0.07 s. This post covers what the three config layers are for, how to measure, what we changed, and a trap that makes powerlevel10k look slow when it isn't."
 date: 2026-10-10
 tags: [zsh, oh-my-zsh, powerlevel10k, shell, dev-environment, macos]
-draft: true
+draft: false
 lang: en
 ---
 
@@ -119,7 +119,7 @@ unset __conda_setup
 
 Every new shell starts a Python process, has conda print a set of shell function definitions, and `eval`s them. Our conda config has `auto_activate` on, so the hook also ends with `conda activate base`, which runs the activation path once more.
 
-The zprof table needs careful reading here. zprof only times functions. The `$(conda shell.zsh hook)` substitution runs at the top level of `.zshrc`, inside no function, so it never shows up; the 230 ms `__conda_activate` row is the activation step alone. Timed on its own, `conda shell.zsh hook` takes about 0.18 s warm, so conda costs about 0.4 s in total. That is the gap between zprof's 290 ms and the 0.50 s wall clock.
+zprof only times functions. The `$(conda shell.zsh hook)` substitution runs at the top level of `.zshrc`, inside no function, so it never shows up; the 230 ms `__conda_activate` row is the activation step alone. Timed on its own, `conda shell.zsh hook` takes about 0.18 s warm, so conda costs about 0.4 s in total. That is the gap between zprof's 290 ms and the 0.50 s wall clock.
 
 The cleanest route is to never run `conda init` at all and to wrap every project command in `conda run -n <env>`. That is our default internally, and the optional section at the end expands on it. This machine had already been initialized, and `python` resolving to base is something we use all day. Ripping that out means retraining habits, so here we chose to keep it and make it cheap.
 

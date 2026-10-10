@@ -3,7 +3,7 @@ title: "一次 zsh 啓動體檢，順便説清 .zshrc、oh-my-zsh 和 powerlevel
 description: "一台日常開發用的 Mac，新開終端要等半秒。其中約八成花在 conda 的 shell hook 上，另有一個安裝腳本讓 compinit 多跑了一遍。把 conda 改成按需加載、把補全目錄挪到 oh-my-zsh 前面，啓動降到 0.07 秒。文中給出三層配置的分工、量法、改法，以及一個會把 powerlevel10k 測出假數字的坑。"
 date: 2026-10-10
 tags: [zsh, oh-my-zsh, powerlevel10k, shell, dev-environment, macos]
-draft: true
+draft: false
 lang: zh
 ---
 
@@ -119,7 +119,7 @@ unset __conda_setup
 
 每開一個 shell，它都要起一個 Python 進程，讓 conda 吐出一段 shell 函數定義，再 `eval` 進來。我們的 conda 配置裏 `auto_activate` 是開着的，所以 hook 末尾還帶一句 `conda activate base`，再跑一遍激活流程。
 
-這裏要把 zprof 那張表讀準。zprof 只統計函數，第一步那次 `$(conda shell.zsh hook)` 在 `.zshrc` 頂層執行，不在任何函數裏，所以不進表；表裏 `__conda_activate` 的 230 毫秒只是第二步。單獨計時 `conda shell.zsh hook`，熱啓動約 0.18 秒，兩步合計約 0.4 秒。zprof 總計 290 毫秒和實測 0.50 秒之間差的那一截，就是它。
+zprof 只統計函數，第一步那次 `$(conda shell.zsh hook)` 在 `.zshrc` 頂層執行，不在任何函數裏，所以不進表；表裏 `__conda_activate` 的 230 毫秒只是第二步。單獨計時 `conda shell.zsh hook`，熱啓動約 0.18 秒，兩步合計約 0.4 秒。zprof 總計 290 毫秒和實測 0.50 秒之間差的那一截，就是它。
 
 最乾淨的路是從一開始就不跑 `conda init`，每個項目的命令都用 `conda run -n <env>` 包起來執行。這是我們內部的默認做法，文末選讀一節會展開。這台機器已經 init 過，`python` 指向 base 這件事日常在用，拔掉要改一圈習慣，所以這裏選的是留着它，把它變便宜。
 
@@ -235,7 +235,7 @@ zprof | head
 
 我們這台改完是 0.07 秒，其中 oh-my-zsh 加載 lib 和插件 20 毫秒，`compinit` 連同它裏面的 `compaudit` 二十多毫秒，powerlevel10k 初始化十來毫秒。再往下壓要換掉 oh-my-zsh，我們覺得不值。
 
-## 選讀，miniconda 怎麼裝，以及我們怎麼用它
+## 選讀 miniconda 怎麼裝，以及我們怎麼用它
 
 這一節給要跑 Python 項目的人。前面 conda 那一節是補救，機器已經 `conda init` 過了才用。這裏是新機器上我們推薦的裝法。兩條路只能選一條。
 
