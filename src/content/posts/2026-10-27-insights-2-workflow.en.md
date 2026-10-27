@@ -111,7 +111,7 @@ On reliability the result was lopsided. On the same ledgers, the incumbent model
 
 A problem showed up on launch day. The profile's array fields had no item limit, so heavy users' replies ran into `max_tokens` and the JSON failed to parse. We opened [#463](https://github.com/etherfunlab/eros-engine/issues/463), proposing a per-field item cap in the prompt, the same cap enforced on write, and compact JSON output.
 
-Phase 2 gave it direct evidence. Every truncation had the same shape: one array that would not stop. The issue could only see the first 2,000 characters that were stored, and judged the reply "long, not looping". With the full replies in hand, 10 of the 13 truncated arrays turned out to repeat the same items over and over, so the fix needs deduplication as well as a cap; that correction is now a comment on the issue. Switching the primary model leaves truncation only on the fallback path, and the fallback is the old model, so the fix is still needed.
+Phase 2 gave it direct evidence. Every truncation had the same shape: one array that would not stop. The issue could only see the first 2,000 characters that were stored, and judged the reply "long, not looping". With the full replies in hand, 10 of the 13 truncated arrays turned out to repeat the same items over and over, so the fix needs deduplication as well as a cap; that correction is now a comment on the issue. The fix is needed whichever model is primary: the fallback is the old model, and in the first 631 production rebuilds after the switch, the new primary also hit the 4,000-token limit once.
 
 Phase 1 had called truncation an input problem. That referred to 1.0 having to rewrite the whole old profile, and 2.0 removed that cause by not reading the old profile at all. A runaway array on the output side is a separate problem.
 
@@ -124,6 +124,8 @@ As of October 27, 2026, 20:00 UTC:
 - The engine has a user erasure endpoint; it is not wired up in production yet.
 - The 86% fewer calls and the 1.1-hour p90 delay are still simulation results from the audit. Production measurements need a full week of traffic.
 - #463 is still open.
+
+*Correction, October 27, 2026: an earlier version of this post said that switching the primary model left truncation only on the fallback path. In the first 631 production rebuilds after the switch, the new primary also hit the 4,000-token limit once. The section on the first iteration now says the fix is needed for both models.*
 
 ---
 
